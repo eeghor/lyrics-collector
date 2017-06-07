@@ -30,4 +30,20 @@ for artist in artist_list:
 	this_page_urls = defaultdict(str)
 	for a in soup_page.find_all("a", href=re.compile(artist_letter + "/")):
 		this_page_urls["".join([v for v in a.text.lower().strip() if (v.isalnum() or (v == " "))])] = "/".join([MAIN_URL, a["href"]])
-	print(this_page_urls)
+	# try to find out if the artist is on this page
+	try:
+		albums_page = requests.get(this_page_urls[artist], headers=header).text
+	except:
+		# most likely, caouldn't find the artist; move on to the next artist
+		continue
+	# if artist has been found, create a soup object for the album page
+	soup_alb_page = BeautifulSoup(albums_page, "lxml")
+	# song dictionary
+	this_page_track_urls = defaultdict(str)
+	for a in soup_alb_page.find_all("a", href=re.compile("/lyrics/")):
+		this_page_track_urls[a.text.lower().strip()] = a["href"]
+	print(this_page_track_urls)
+
+
+
+
