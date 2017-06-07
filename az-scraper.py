@@ -1,7 +1,24 @@
+import socks  # create TCP connections through a SOCKS proxy
+import socket
+import stem.process
 import requests
 import re
 from bs4 import BeautifulSoup
 from collections import defaultdict
+
+SOCKS_PORT=7000
+
+tor_process = stem.process.launch_tor_with_config(
+    config = {
+        'SocksPort': str(SOCKS_PORT),
+    },
+)
+
+socks.setdefaultproxy(proxy_type=socks.PROXY_TYPE_SOCKS5,
+                      addr="127.0.0.1", #theres a ',' change it to '.' -- linkedin was being glitchy
+                      port=SOCKS_PORT)
+
+socket.socket = socks.socksocket
 
 header = {'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36"}
 
@@ -39,10 +56,20 @@ for artist in artist_list:
 	# if artist has been found, create a soup object for the album page
 	soup_alb_page = BeautifulSoup(albums_page, "lxml")
 	# song dictionary
-	this_page_track_urls = defaultdict(str)
+	this_artist_track_urls = defaultdict(str)
 	for a in soup_alb_page.find_all("a", href=re.compile("/lyrics/")):
-		this_page_track_urls[a.text.lower().strip()] = a["href"]
-	print(this_page_track_urls)
+		this_artist_track_urls[a.text.lower().strip()] = "/".join([MAIN_URL, a["href"][3:]])  # skip "../"
+	# now got to the page where the lyrics is
+	for song in this_artist_track_urls:
+		track_lyrics_pg = requests.get(this_artist_track_urls[song], headers=header).text
+		soup_lyrics_pg = BeautifulSoup(track_lyrics_pg, "lxml")
+		# go to that span over the lyrics
+		sp = soup_lyrics_pg.find("span", id="cf_text_top")
+		print(sp.parent.find_next_sibling("div"))
+
+	tor_process.kill()
+
+
 
 
 
